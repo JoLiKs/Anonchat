@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnonChat - Анонимное общение</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        dark: '#181818'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .message-bubble {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .room-card:hover {
+            transform: translateY(-2px);
+            transition: transform 0.2s ease;
+        }
+        
+        .online-indicator {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-dark text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <!-- Header -->
+    <header class="bg-primary text-white p-4 shadow-lg">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <h1 class="text-2xl font-bold">🔒 AnonChat</h1>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm opacity-90" id="userNickname"></span>
+                <div class="flex items-center space-x-2">
+                    <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                    <span class="text-sm" id="onlineCount">1 онлайн</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto p-4">
+        <!-- Room Selection -->
+        <div id="roomSelection" class="space-y-6">
+            <div class="text-center py-8">
+                <h2 class="text-3xl font-bold mb-4">Выберите комнату для общения</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-8">Анонимное общение в реальном времени</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="roomsList">
+                <!-- Rooms will be dynamically generated -->
+            </div>
+            
+            <div class="text-center">
+                <button id="createRoomBtn" class="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                    + Создать новую комнату
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div id="chatInterface" class="hidden">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                <!-- Chat Header -->
+                <div class="bg-primary text-white p-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <button id="backToRoomsBtn" class="text-white hover:text-gray-200">
+                            ← Назад
+                        </button>
+                        <h3 class="font-semibold" id="currentRoomName"></h3>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                        <span class="text-sm" id="roomOnlineCount">1 онлайн</span>
+                    </div>
+                </div>
+                
+                <!-- Messages Area -->
+                <div id="messagesContainer" class="h-96 overflow-y-auto p-4 space-y-3">
+                    <!-- Messages will be displayed here -->
+                </div>
+                
+                <!-- Message Input -->
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="flex space-x-3">
+                        <input 
+                            type="text" 
+                            id="messageInput" 
+                            placeholder="Введите сообщение..."
+                            class="flex-1 text-base px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                        >
+                        <button id="sendBtn" class="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                            Отправить
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <button class="emoji-btn text-2xl hover:scale-110 transition-transform">😀</button>
+                        <button class="emoji-btn text-2xl hover:scale-110 transition-transform">😂</button>
+                        <button class="emoji-btn text-2xl hover:scale-110 transition-transform">❤️</button>
+                        <button class="emoji-btn text-2xl hover:scale-110 transition-transform">👍</button>
+                        <button class="emoji-btn text-2xl hover:scale-110 transition-transform">🔥</button>
+                        <button class="emoji-btn text-2xl hover:scale-110 transition-transform">💯</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Room Modal -->
+    <div id="createRoomModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold mb-4">Создать новую комнату</h3>
+            <input 
+                type="text" 
+                id="newRoomName" 
+                placeholder="Название комнаты"
+                class="w-full text-base px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-4"
+            >
+            <div class="flex space-x-3">
+                <button id="cancelCreateBtn" class="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Отмена
+                </button>
+                <button id="confirmCreateBtn" class="flex-1 bg-primary text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
+                    Создать
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode support
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // App State (В реальном Firebase это было бы в базе данных)
+        class ChatApp {
+            constructor() {
+                this.currentUser = this.generateAnonymousUser();
+                this.currentRoom = null;
+                this.rooms = this.getInitialRooms();
+                this.messages = {};
+                this.onlineUsers = {};
+                
+                this.initializeApp();
+                this.setupEventListeners();
+                this.startSimulation();
+            }
+            
+            generateAnonymousUser() {
+                const adjectives = ['Таинственный', 'Быстрый', 'Умный', 'Добрый', 'Смелый', 'Тихий', 'Яркий', 'Свободный'];
+                const nouns = ['Путник', 'Мыслитель', 'Искатель', 'Мечтатель', 'Исследователь', 'Наблюдатель', 'Творец', 'Странник'];
+                
+                const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+                const noun = nouns[Math.floor(Math.random() * nouns.length)];
+                const num = Math.floor(Math.random() * 1000);
+                
+                return {
+                    id: Date.now().toString(),
+                    nickname: `${adj} ${noun}${num}`,
+                    color: this.getRandomColor()
+                };
+            }
+            
+            getRandomColor() {
+                const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+            
+            getInitialRooms() {
+                return [
+                    { id: 'general', name: '💬 Общение', description: 'Основная комната для свободного общения', users: Math.floor(Math.random() * 50) + 10 },
+                    { id: 'tech', name: '💻 Технологии', description: 'Обсуждение IT и новых технологий', users: Math.floor(Math.random() * 30) + 5 },
+                    { id: 'gaming', name: '🎮 Игры', description: 'Геймеры собираются здесь', users: Math.floor(Math.random() * 40) + 8 },
+                    { id: 'music', name: '🎵 Музыка', description: 'Делимся любимыми треками', users: Math.floor(Math.random() * 25) + 3 },
+                    { id: 'art', name: '🎨 Творчество', description: 'Искусство и креатив', users: Math.floor(Math.random() * 20) + 2 },
+                    { id: 'random', name: '🎲 Случайное', description: 'Обо всем и ни о чем', users: Math.floor(Math.random() * 35) + 7 }
+                ];
+            }
+            
+            initializeApp() {
+                document.getElementById('userNickname').textContent = this.currentUser.nickname;
+                this.renderRooms();
+                this.updateOnlineCount();
+            }
+            
+            renderRooms() {
+                const roomsList = document.getElementById('roomsList');
+                roomsList.innerHTML = '';
+                
+                this.rooms.forEach(room => {
+                    const roomCard = document.createElement('div');
+                    roomCard.className = 'room-card bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md cursor-pointer border border-gray-200 dark:border-gray-700';
+                    roomCard.innerHTML = `
+                        <h3 class="text-xl font-semibold mb-2">${room.name}</h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">${room.description}</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-500">${room.users} пользователей</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                                <span class="text-sm text-green-600 dark:text-green-400">Активно</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    roomCard.addEventListener('click', () => this.joinRoom(room));
+                    roomsList.appendChild(roomCard);
+                });
+            }
+            
+            joinRoom(room) {
+                this.currentRoom = room;
+                this.showChatInterface();
+                this.loadMessages(room.id);
+                this.simulateActivity();
+            }
+            
+            showChatInterface() {
+                document.getElementById('roomSelection').classList.add('hidden');
+                document.getElementById('chatInterface').classList.remove('hidden');
+                document.getElementById('currentRoomName').textContent = this.currentRoom.name;
+                document.getElementById('roomOnlineCount').textContent = `${this.currentRoom.users} онлайн`;
+            }
+            
+            showRoomSelection() {
+                document.getElementById('chatInterface').classList.add('hidden');
+                document.getElementById('roomSelection').classList.remove('hidden');
+                this.currentRoom = null;
+            }
+            
+            loadMessages(roomId) {
+                if (!this.messages[roomId]) {
+                    this.messages[roomId] = this.getInitialMessages(roomId);
+                }
+                this.renderMessages();
+            }
+            
+            getInitialMessages(roomId) {
+                const sampleMessages = [
+                    'Привет всем! 👋',
+                    'Как дела?',
+                    'Кто-нибудь смотрел новый фильм?',
+                    'Отличная погода сегодня',
+                    'Какие планы на выходные?'
+                ];
+                
+                const messages = [];
+                const messageCount = Math.floor(Math.random() * 3) + 2;
+                
+                for (let i = 0; i < messageCount; i++) {
+                    const user = this.generateAnonymousUser();
+                    messages.push({
+                        id: Date.now() + i,
+                        user: user,
+                        text: sampleMessages[Math.floor(Math.random() * sampleMessages.length)],
+                        timestamp: Date.now() - (messageCount - i) * 60000
+                    });
+                }
+                
+                return messages;
+            }
+            
+            renderMessages() {
+                const container = document.getElementById('messagesContainer');
+                container.innerHTML = '';
+                
+                const messages = this.messages[this.currentRoom.id] || [];
+                
+                messages.forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message-bubble';
+                    
+                    const isOwn = message.user.id === this.currentUser.id;
+                    
+                    messageDiv.innerHTML = `
+                        <div class="flex items-start space-x-3 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold" style="background-color: ${message.user.color}">
+                                ${message.user.nickname.charAt(0)}
+                            </div>
+                            <div class="flex-1 ${isOwn ? 'text-right' : ''}">
+                                <div class="flex items-center space-x-2 mb-1 ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}">
+                                    <span class="text-sm font-semibold" style="color: ${message.user.color}">${message.user.nickname}</span>
+                                    <span class="text-xs text-gray-500">${this.formatTime(message.timestamp)}</span>
+                                </div>
+                                <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg ${isOwn ? 'bg-primary text-white' : ''}">
+                                    ${message.text}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(messageDiv);
+                });
+                
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            sendMessage(text) {
+                if (!text.trim() || !this.currentRoom) return;
+                
+                const message = {
+                    id: Date.now(),
+                    user: this.currentUser,
+                    text: text.trim(),
+                    timestamp: Date.now()
+                };
+                
+                if (!this.messages[this.currentRoom.id]) {
+                    this.messages[this.currentRoom.id] = [];
+                }
+                
+                this.messages[this.currentRoom.id].push(message);
+                this.renderMessages();
+                
+                // В реальном Firebase здесь был бы вызов database.ref().push()
+            }
+            
+            createRoom(name) {
+                if (!name.trim()) return;
+                
+                const room = {
+                    id: Date.now().toString(),
+                    name: `🏠 ${name.trim()}`,
+                    description: 'Новая комната',
+                    users: 1
+                };
+                
+                this.rooms.push(room);
+                this.renderRooms();
+                
+                // В реальном Firebase здесь был бы вызов database.ref('rooms').push()
+            }
+            
+            simulateActivity() {
+                // Симуляция активности других пользователей
+                if (!this.currentRoom) return;
+                
+                setTimeout(() => {
+                    if (Math.random() < 0.3 && this.currentRoom) {
+                        const responses = [
+                            'Интересно! 🤔',
+                            'Согласен',
+                            'А я думаю по-другому',
+                            'Классно! 👍',
+                            'Расскажи подробнее',
+                            'Я тоже так считаю',
+                            '😄😄😄'
+                        ];
+                        
+                        const user = this.generateAnonymousUser();
+                        const message = {
+                            id: Date.now(),
+                            user: user,
+                            text: responses[Math.floor(Math.random() * responses.length)],
+                            timestamp: Date.now()
+                        };
+                        
+                        if (this.messages[this.currentRoom.id]) {
+                            this.messages[this.currentRoom.id].push(message);
+                            this.renderMessages();
+                        }
+                    }
+                    
+                    if (this.currentRoom) {
+                        this.simulateActivity();
+                    }
+                }, Math.random() * 10000 + 5000);
+            }
+            
+            startSimulation() {
+                // Симуляция изменения количества онлайн пользователей
+                setInterval(() => {
+                    this.rooms.forEach(room => {
+                        const change = Math.floor(Math.random() * 3) - 1;
+                        room.users = Math.max(1, room.users + change);
+                    });
+                    
+                    if (this.currentRoom) {
+                        document.getElementById('roomOnlineCount').textContent = `${this.currentRoom.users} онлайн`;
+                    }
+                    
+                    this.updateOnlineCount();
+                }, 5000);
+            }
+            
+            updateOnlineCount() {
+                const total = this.rooms.reduce((sum, room) => sum + room.users, 0);
+                document.getElementById('onlineCount').textContent = `${total} онлайн`;
+            }
+            
+            formatTime(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            }
+            
+            setupEventListeners() {
+                // Back to rooms
+                document.getElementById('backToRoomsBtn').addEventListener('click', () => {
+                    this.showRoomSelection();
+                });
+                
+                // Send message
+                const sendMessage = () => {
+                    const input = document.getElementById('messageInput');
+                    this.sendMessage(input.value);
+                    input.value = '';
+                };
+                
+                document.getElementById('sendBtn').addEventListener('click', sendMessage);
+                document.getElementById('messageInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
+                
+                // Emoji buttons
+                document.querySelectorAll('.emoji-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const input = document.getElementById('messageInput');
+                        input.value += btn.textContent;
+                        input.focus();
+                    });
+                });
+                
+                // Create room modal
+                document.getElementById('createRoomBtn').addEventListener('click', () => {
+                    document.getElementById('createRoomModal').classList.remove('hidden');
+                });
+                
+                document.getElementById('cancelCreateBtn').addEventListener('click', () => {
+                    document.getElementById('createRoomModal').classList.add('hidden');
+                    document.getElementById('newRoomName').value = '';
+                });
+                
+                document.getElementById('confirmCreateBtn').addEventListener('click', () => {
+                    const name = document.getElementById('newRoomName').value;
+                    this.createRoom(name);
+                    document.getElementById('createRoomModal').classList.add('hidden');
+                    document.getElementById('newRoomName').value = '';
+                });
+                
+                // Close modal on background click
+                document.getElementById('createRoomModal').addEventListener('click', (e) => {
+                    if (e.target === document.getElementById('createRoomModal')) {
+                        document.getElementById('createRoomModal').classList.add('hidden');
+                        document.getElementById('newRoomName').value = '';
+                    }
+                });
+            }
+        }
+        
+        // Initialize app
+        const app = new ChatApp();
+    </script>
+</body>
+</html>
